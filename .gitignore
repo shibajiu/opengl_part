@@ -1,0 +1,12 @@
+/Debug
+/ipch
+/Release
+/glinfo/Debug
+/glinfo/Release
+*.sdf
+*.suo
+*.dll
+*.txt
+*.vcxproj
+*.filters
+*.gitignore~
