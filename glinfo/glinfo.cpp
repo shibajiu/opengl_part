@@ -8,6 +8,136 @@ using namespace glm;
 
 GLFWwindow* window;
 
+GLuint load_shader(char* path, char* path2);
+void drop_file(string s);
+
+class objload{
+private:
+	struct Vertex{//vertex
+		float x, y, z;
+		Vertex(){}
+		Vertex(float xi, float yi, float zi) :x(xi), y(yi), z(zi){}
+	};
+
+	struct FaceIndex{//face index
+		int a;
+		int b;
+		int c;
+		FaceIndex(){}
+		FaceIndex(int x, int y, int z) :a(x), b(y), c(z){}
+	};
+
+	struct Normal{//normal
+		float x;
+		float y;
+		float z;
+		Normal(){}
+		Normal(float a, float b, float c) :x(a), y(b), z(c){}
+	};
+
+	vector<Vertex> Vertices;
+	vector<FaceIndex> Indices;
+	vector<Normal> Normals;
+
+	void load_obj(char* path){
+		ifstream obj(path);
+		if (!obj.is_open()){
+			fprintf_s(stderr, "cannot open file\n");
+			return;
+		}
+		char buffer[128];
+		float f1, f2, f3;
+		int i0, i1, i2;
+		while (!obj.eof()){
+			obj.getline(buffer, 128, '\n');
+			if (buffer[0] == 'v' && (buffer[1] == ' ' || buffer[1] == 32)){
+				if (sscanf_s(buffer, "v %f %f %f", &f1, &f2, &f3) == 3){
+					Vertices.push_back(Vertex(f1, f2, f3));
+				}
+				else{
+					fprintf(stderr, "ERROR: vertex not in wanted format in OBJLoader\n");
+					exit(0);
+				}
+			}
+			else if (buffer[0] == 'f' && (buffer[1] == ' ' || buffer[1] == 32)){
+				if (sscanf_s(buffer, "f %d %d %d", &i0, &i1, &i2) == 3){
+					Indices.push_back(FaceIndex(i0, i1, i2));
+				}
+				else{
+					fprintf(stderr, "ERROR: FaceIndex not in wanted format in OBJLoader\n");
+					exit(0);
+				}
+			}
+			else if (buffer[0] == 'n' && (buffer[1] == ' ' || buffer[1] == 32)){
+				if (sscanf_s(buffer, "n %f %f %f", &f1, &f2, &f3) == 3){
+					Normals.push_back(Normal(f1, f2, f3));
+				}
+				else{
+					fprintf(stderr, "ERROR: Normal not in wanted format in OBJLoader\n");
+					exit(0);
+				}
+			}
+		}
+		obj.close();
+	}
+
+public:
+	int* obj_indexbuffer;
+	float* obj_vertexbuffer, *obj_normalbuffer;
+	int obj_indexbuffer_size, obj_vertexbuffer_size, obj_normalbuffer_size;
+
+	void load_obj_struct_itr(char* path){
+		
+		load_obj(path);
+
+		printf_s("Loading obj file...\n");
+
+		obj_vertexbuffer_size = Vertices.size() * 3;
+		obj_indexbuffer_size = Indices.size() * 3;
+		obj_normalbuffer_size = Normals.size() * 3;
+		obj_vertexbuffer = new float[obj_vertexbuffer_size];
+		obj_indexbuffer = new int[obj_indexbuffer_size];
+		obj_normalbuffer = new float[obj_normalbuffer_size];
+
+		int iv = 0;
+		for (vector<Vertex>::const_iterator ite = Vertices.begin(); ite != Vertices.end(); ++ite){
+			obj_vertexbuffer[iv * 3] = ite->x;
+			obj_vertexbuffer[iv * 3 + 1] = ite->y;
+			obj_vertexbuffer[iv * 3 + 2] = ite->z;
+			iv++;
+		}
+		printf_s("vertexbuffer loaded\n");
+
+		iv = 0;
+		for (vector<FaceIndex>::const_iterator ite = Indices.begin(); ite != Indices.end(); ++ite){
+			obj_indexbuffer[iv * 3] = ite->a;
+			obj_indexbuffer[iv * 3 + 1] = ite->b;
+			obj_indexbuffer[iv * 3 + 2] = ite->c;
+			iv++;
+		}
+		printf_s("indexbuffer loaded\n");
+
+		iv = 0;
+		for (vector<Normal>::const_iterator ite = Normals.begin(); ite != Normals.end(); ++ite){
+			obj_normalbuffer[iv * 3] = ite->x;
+			obj_normalbuffer[iv * 3 + 1] = ite->y;
+			obj_normalbuffer[iv * 3 + 2] = ite->z;
+			iv++;
+		}
+		printf_s("normalbuffer loaded\n");
+		printf_s("obj file loaded\n");
+	}
+
+	~objload(){
+		Vertices.clear();
+		Indices.clear();
+		Normals.clear();
+		delete[] obj_vertexbuffer;
+		delete[] obj_indexbuffer;
+		delete[] obj_normalbuffer;
+	}
+};
+
 // Our vertices. Tree consecutive floats give a 3D vertex; Three consecutive vertices give a triangle.
 // A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
 
@@ -131,8 +261,6 @@ static const char* fragshadersource =
 
 int _tmain(int argc, _TCHAR* argv[]){
 
-	regex("^(.+)/(.+\.obj)$");
-
 	if (glfwInit() == GLFW_FALSE){
 		fprintf_s(stderr, "failed to init glfw\n");
 		glfwTerminate();
@@ -147,18 +275,22 @@ int _tmain(int argc, _TCHAR* argv[]){
 	glfwSwapInterval(1);
 	glfwSetErrorCallback(
 		[](int error, const char * desc){
-		fprintf_s(stderr, "ERROR:%s\n", desc); }
+		fprintf_s(stderr, "ERROR:%s\n", desc); 
+	}
 	);
 	glfwSetDropCallback(
 		window,
-		[](GLFWwindow* win, int count, const char * path[]){}
+		[](GLFWwindow* win, int count, const char * path[]){
+		drop_file(path[0]);
+	}
 	);
 	static double xold = 0, yold = 0, xmov = 0;
 	glfwSetCursorPosCallback(
 		window,
 		[](GLFWwindow* win, double x, double y){
 		xmov += x - xold; 
-		xold = x; }
+		xold = x; 
+	}
 	);
 	glfwSetKeyCallback(
 		window,
@@ -270,4 +402,79 @@ int _tmain(int argc, _TCHAR* argv[]){
 	glfwTerminate();
 	//system("pause");
 	return 0;
+}
+
+void drop_file(string s){
+	auto reg = regex("([0-9a-zA-Z\_\-]+?)\.(obj|vshader|fshader)$");
+	//reg = regex("obj");
+	smatch sm;
+	if (regex_search(s, sm, reg)){
+		if (sm[2] == "obj"){
+			glfwSetWindowTitle(window, "obj");
+			//printf_s
+			for (auto x = sm.begin(); x != sm.end(); x++)
+				cout << x->str() << endl;
+		}
+		else
+			printf_s("non\n");
+	}
+	else
+		printf_s("non1\n");
+}
+
+GLuint load_shader(char* path,char* path2){
+	string vshader_f_source, fshader_f_source,temp;
+	auto shaderfstream = ifstream(path, ios::in);
+	if (shaderfstream.is_open()){
+		while (getline(shaderfstream,temp)){
+			vshader_f_source += temp + "\n";
+		}
+	}
+	shaderfstream.close();
+	
+	shaderfstream = ifstream(path2);
+	if (shaderfstream.is_open()){
+		while (getline(shaderfstream, temp)){
+			fshader_f_source += temp + "\n";
+		}
+	}
+	shaderfstream.close();
+
+	GLint success;
+	GLchar infolog[512];
+	GLuint l_vs, l_fs,l_program;
+	char const *l_vshader = vshader_f_source.c_str();
+	char const *l_fshader = fshader_f_source.c_str();
+	l_vs = glCreateShader(GL_VERTEX_SHADER);
+	l_fs = glCreateShader(GL_FRAGMENT_SHADER);
+
+	glShaderSource(l_vs, 1, &l_vshader, NULL);
+	glCompileShader(l_vs);
+	glGetShaderiv(l_vs, GL_COMPILE_STATUS, &success);
+	if (!success){
+		glGetShaderInfoLog(l_vs, 512, NULL, infolog);
+		fprintf_s(stderr, "loaded_vshader:%s", infolog);
+	}
+
+	glShaderSource(l_fs, 1, &l_fshader, NULL);
+	glCompileShader(l_fs);
+	glGetShaderiv(l_fs, GL_COMPILE_STATUS, &success);
+	if (!success){
+		glGetShaderInfoLog(l_fs, 512, NULL, infolog);
+		fprintf_s(stderr, "loaded_fshader:%s", infolog);
+	}
+
+	l_program = glCreateProgram();
+	glAttachShader(l_program, l_vs);
+	glAttachShader(l_program, l_fs);
+	glLinkProgram(l_program);
+	glGetProgramiv(l_program, GL_LINK_STATUS, &success);
+	if (!success){
+		glGetProgramInfoLog(l_program, 512, NULL, infolog);
+		fprintf_s(stderr, "shaderprogram:%s", infolog);
+	}
+	glDetachShader(l_program, l_vs);
+	glDetachShader(l_program, l_fs);
+
+	return l_program;
 }

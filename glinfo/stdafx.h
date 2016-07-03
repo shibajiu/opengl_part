@@ -22,3 +22,5 @@
 #include <regex>
 #include <math.h>
 #include <fstream>
+#include <vector>
+#include <string>
