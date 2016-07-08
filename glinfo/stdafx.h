@@ -24,3 +24,6 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <map>
+
+#define GET_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))

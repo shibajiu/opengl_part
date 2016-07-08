@@ -7,10 +7,12 @@ using namespace std;
 using namespace glm;
 
 GLFWwindow* window;
+static bool isFullscreen = false;
 
-GLuint load_shader(char* path, char* path2);
-void drop_file(string s);
+GLuint load_shader(const char* path, const char* path2);
+int drop_file(string s);
 
+//load obj file and create vao, just use func(creatvao_obj)
 class objload{
 private:
 	struct Vertex{//vertex
@@ -39,7 +41,11 @@ private:
 	vector<FaceIndex> Indices;
 	vector<Normal> Normals;
 
-	void load_obj(char* path){
+	int* obj_indexbuffer;
+	float* obj_vertexbuffer, *obj_normalbuffer;
+	int obj_indexbuffer_size, obj_vertexbuffer_size, obj_normalbuffer_size;
+
+	void load_obj(const char* path){
 		ifstream obj(path);
 		if (!obj.is_open()){
 			fprintf_s(stderr, "cannot open file\n");
@@ -81,52 +87,11 @@ private:
 		obj.close();
 	}
 
+	void load_obj_struct_itr(const char* path);
+
 public:
-	int* obj_indexbuffer;
-	float* obj_vertexbuffer, *obj_normalbuffer;
-	int obj_indexbuffer_size, obj_vertexbuffer_size, obj_normalbuffer_size;
 
-	void load_obj_struct_itr(char* path){
-		
-		load_obj(path);
-
-		printf_s("Loading obj file...\n");
-
-		obj_vertexbuffer_size = Vertices.size() * 3;
-		obj_indexbuffer_size = Indices.size() * 3;
-		obj_normalbuffer_size = Normals.size() * 3;
-		obj_vertexbuffer = new float[obj_vertexbuffer_size];
-		obj_indexbuffer = new int[obj_indexbuffer_size];
-		obj_normalbuffer = new float[obj_normalbuffer_size];
-
-		int iv = 0;
-		for (vector<Vertex>::const_iterator ite = Vertices.begin(); ite != Vertices.end(); ++ite){
-			obj_vertexbuffer[iv * 3] = ite->x;
-			obj_vertexbuffer[iv * 3 + 1] = ite->y;
-			obj_vertexbuffer[iv * 3 + 2] = ite->z;
-			iv++;
-		}
-		printf_s("vertexbuffer loaded\n");
-
-		iv = 0;
-		for (vector<FaceIndex>::const_iterator ite = Indices.begin(); ite != Indices.end(); ++ite){
-			obj_indexbuffer[iv * 3] = ite->a;
-			obj_indexbuffer[iv * 3 + 1] = ite->b;
-			obj_indexbuffer[iv * 3 + 2] = ite->c;
-			iv++;
-		}
-		printf_s("indexbuffer loaded\n");
-
-		iv = 0;
-		for (vector<Normal>::const_iterator ite = Normals.begin(); ite != Normals.end(); ++ite){
-			obj_normalbuffer[iv * 3] = ite->x;
-			obj_normalbuffer[iv * 3 + 1] = ite->y;
-			obj_normalbuffer[iv * 3 + 2] = ite->z;
-			iv++;
-		}
-		printf_s("normalbuffer loaded\n");
-		printf_s("obj file loaded\n");
-	}
+	GLuint creatvao_obj(const char* path);
 
 	~objload(){
 		Vertices.clear();
@@ -137,6 +102,74 @@ public:
 		delete[] obj_normalbuffer;
 	}
 };
+
+void objload::load_obj_struct_itr(const char* path){
+
+	load_obj(path);
+
+	printf_s("Loading obj file...\n");
+
+	obj_vertexbuffer_size = Vertices.size() * 3;
+	obj_indexbuffer_size = Indices.size() * 3;
+	obj_normalbuffer_size = Normals.size() * 3;
+	obj_vertexbuffer = new float[obj_vertexbuffer_size];
+	obj_indexbuffer = new int[obj_indexbuffer_size];
+	obj_normalbuffer = new float[obj_normalbuffer_size];
+
+	int iv = 0;
+	for (vector<Vertex>::const_iterator ite = Vertices.begin(); ite != Vertices.end(); ++ite){
+		obj_vertexbuffer[iv * 3] = ite->x;
+		obj_vertexbuffer[iv * 3 + 1] = ite->y;
+		obj_vertexbuffer[iv * 3 + 2] = ite->z;
+		iv++;
+	}
+	printf_s("vertexbuffer loaded\n");
+
+	iv = 0;
+	for (vector<FaceIndex>::const_iterator ite = Indices.begin(); ite != Indices.end(); ++ite){
+		obj_indexbuffer[iv * 3] = ite->a;
+		obj_indexbuffer[iv * 3 + 1] = ite->b;
+		obj_indexbuffer[iv * 3 + 2] = ite->c;
+		iv++;
+	}
+	printf_s("indexbuffer loaded\n");
+
+	iv = 0;
+	for (vector<Normal>::const_iterator ite = Normals.begin(); ite != Normals.end(); ++ite){
+		obj_normalbuffer[iv * 3] = ite->x;
+		obj_normalbuffer[iv * 3 + 1] = ite->y;
+		obj_normalbuffer[iv * 3 + 2] = ite->z;
+		iv++;
+	}
+	printf_s("normalbuffer loaded\n");
+	printf_s("obj file loaded\n");
+}
+
+GLuint objload::creatvao_obj(const char* path){
+	load_obj_struct_itr(path);
+
+	const GLfloat* vbo_l_s = obj_vertexbuffer;
+	const GLint* ebo_l_s = obj_indexbuffer;
+	const GLfloat* nbo_l_s = obj_normalbuffer;
+
+	GLuint vao_l,vbo_l,ebo_l;
+	glGenVertexArrays(1, &vao_l);
+	glBindVertexArray(vao_l);
+
+	glEnableVertexAttribArray(2);
+	glGenBuffers(1, &vbo_l);
+	glBindBuffer(GL_ARRAY_BUFFER,vbo_l);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_l_s), vbo_l_s, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GL_FLOAT), NULL);
+
+	glGenBuffers(1, &ebo_l);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_l);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ebo_l_s), ebo_l_s, GL_STATIC_DRAW);
+
+	glBindVertexArray(0);
+
+	return vao_l;
+}
 
 // Our vertices. Tree consecutive floats give a 3D vertex; Three consecutive vertices give a triangle.
 // A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
@@ -259,7 +292,12 @@ static const char* fragshadersource =
 "}"
 ;
 
+static enum FILE_l{ FILE_NON, FILE_OBJ, FILE_VSHADER, FILE_FSHADER, FILE_PROGRAM };
+
 int _tmain(int argc, _TCHAR* argv[]){
+
+	//without 'static': an enclosing-function local variable cannot be referenced in a lambda body unless if it is in capture list
+	static objload Obj;
 
 	if (glfwInit() == GLFW_FALSE){
 		fprintf_s(stderr, "failed to init glfw\n");
@@ -281,7 +319,39 @@ int _tmain(int argc, _TCHAR* argv[]){
 	glfwSetDropCallback(
 		window,
 		[](GLFWwindow* win, int count, const char * path[]){
-		drop_file(path[0]);
+		int len = GET_ARRAY_LEN(path), f, path_v = -1, path_f = -1;
+		
+		for (int p = 0; p < len;++p){
+			switch (drop_file(path[p])){
+			case FILE_NON:
+				printf_s("File not found\n");
+				break;
+
+			case FILE_OBJ:
+				printf_s("Found obj file\n");
+				Obj.creatvao_obj(path[p]);
+				break;
+
+			case FILE_VSHADER:
+				printf_s("Found vshader file\n");
+				if (path_f != -1)
+					load_shader(path[p], path[path_f]);
+				else
+					path_v = p;
+				break;
+
+			case FILE_FSHADER:
+				printf_s("Found fshader file\n");
+				if (path_v != -1)
+					load_shader(path[path_v], path[p]);
+				else
+					path_f = p;
+				break;
+
+			default:
+				break;
+			}
+		}
 	}
 	);
 	static double xold = 0, yold = 0, xmov = 0;
@@ -294,10 +364,21 @@ int _tmain(int argc, _TCHAR* argv[]){
 	);
 	glfwSetKeyCallback(
 		window,
-		[](GLFWwindow* win, int key, int scancode, int action, int mods){}
+		[](GLFWwindow* win, int key, int scancode, int action, int mods){
+		switch (key){
+		case GLFW_KEY_F:
+			if (action == GLFW_PRESS){
+			glfwSetWindowMonitor(window, isFullscreen? NULL: glfwGetPrimaryMonitor(), 0, 0, 800, 600, GLFW_DONT_CARE);
+			isFullscreen = !isFullscreen;
+			}
+			break;
+		default:
+			break;
+		}
+	}
 	);
-
-	if (glewInit() == GLEW_OK)//init glew after setting glfw
+	//init glew after setting glfw
+	if (glewInit() == GLEW_OK)
 		printf_s("glew initialized\n");
 	else
 		fprintf_s(stderr, "failed to initialize glew\n");
@@ -357,15 +438,6 @@ int _tmain(int argc, _TCHAR* argv[]){
 	glDetachShader(shaderprogram, vshader);
 	glDetachShader(shaderprogram, fshader);
 	
-/*
-	map<string, int> m;
-	m["hello"] = 0;
-	m["world"] = 1;
-	m["zzfun"] = 2;
-	for (auto it = m.begin(); it != m.end(); ++it)
-		cout << it->first << "\t" << it->second << endl;
-	cout << "------------------------------------------------------------" << endl;*/
-
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
@@ -374,6 +446,7 @@ int _tmain(int argc, _TCHAR* argv[]){
 	double lasttime = 0;
 	vec3 rotate_axis(0.0, 1.0, 0.0);
 
+	//mainloop
 	while (!glfwWindowShouldClose(window)){
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
@@ -384,12 +457,12 @@ int _tmain(int argc, _TCHAR* argv[]){
 		mat4 modelrotate = rotate(pass,rotate_axis);
 		mat4 projectionmatrix = perspective(75.0f, 4.0f / 3.0f, 0.1f, 500.0f);
 		mat4 viewmatrix = lookAtRH(vec3(4+xmov, 5, 7), vec3(0, 0, 0), vec3(0, 1, 0));
-		mat4 VPmatrix = projectionmatrix*viewmatrix*modelrotate;
+		mat4 VPmatrix = projectionmatrix*viewmatrix*modelrotate;//mvp matrix
 		
 		glViewport(0, 0, 800, 600);
 		glBindVertexArray(vao);
 		glUseProgram(shaderprogram);
-		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "mvp"), 1, GL_FALSE, (float*)&VPmatrix);
+		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "mvp"), 1, GL_FALSE, (float*)&VPmatrix);//load mvp
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -404,25 +477,34 @@ int _tmain(int argc, _TCHAR* argv[]){
 	return 0;
 }
 
-void drop_file(string s){
+int drop_file(string s){
 	auto reg = regex("([0-9a-zA-Z\_\-]+?)\.(obj|vshader|fshader)$");
-	//reg = regex("obj");
 	smatch sm;
+	//use regex to check the dropped file
 	if (regex_search(s, sm, reg)){
 		if (sm[2] == "obj"){
 			glfwSetWindowTitle(window, "obj");
-			//printf_s
 			for (auto x = sm.begin(); x != sm.end(); x++)
 				cout << x->str() << endl;
+			return FILE_OBJ;
+		}
+		else if (sm[2] == "vshader"){
+			return FILE_VSHADER;
+		}
+		else if (sm[2] == "fshader"){
+			return FILE_FSHADER;
 		}
 		else
 			printf_s("non\n");
+		return FILE_NON;
 	}
 	else
 		printf_s("non1\n");
+	return FILE_NON;
 }
 
-GLuint load_shader(char* path,char* path2){
+//load shader from dropped file, path: vshader, path2: fshader
+GLuint load_shader(const char* path, const char* path2){
 	string vshader_f_source, fshader_f_source,temp;
 	auto shaderfstream = ifstream(path, ios::in);
 	if (shaderfstream.is_open()){
