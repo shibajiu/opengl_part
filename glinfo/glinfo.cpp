@@ -1,5 +1,4 @@
 // glinfo.cpp : Defines the entry point for the console application.
-//
 
 #include "stdafx.h"
 
@@ -9,6 +8,7 @@ using namespace glm;
 GLFWwindow* window;
 static bool isFullscreen = false;
 
+int init(void);
 GLuint load_shader(const char* path, const char* path2);
 int drop_file(string s);
 
@@ -152,13 +152,13 @@ GLuint objload::creatvao_obj(const char* path){
 	const GLint* ebo_l_s = obj_indexbuffer;
 	const GLfloat* nbo_l_s = obj_normalbuffer;
 
-	GLuint vao_l,vbo_l,ebo_l;
+	GLuint vao_l, vbo_l, ebo_l;
 	glGenVertexArrays(1, &vao_l);
 	glBindVertexArray(vao_l);
 
 	glEnableVertexAttribArray(2);
 	glGenBuffers(1, &vbo_l);
-	glBindBuffer(GL_ARRAY_BUFFER,vbo_l);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_l);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_l_s), vbo_l_s, GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GL_FLOAT), NULL);
 
@@ -174,13 +174,13 @@ GLuint objload::creatvao_obj(const char* path){
 // Our vertices. Tree consecutive floats give a 3D vertex; Three consecutive vertices give a triangle.
 // A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
 
-static const GLfloat g_vertex_buffer_data[] = {
+static const GLfloat g_vertex_buffer_data1[] = {
 	-0.5f, -0.5f, 0.0f,
 	0.5f, -0.5f, 0.0f,
 	0.0f, 0.5f, 0.0f
 };
 
-static const GLfloat g_vertex_buffer_data_cube[] = {
+static const GLfloat g_vertex_buffer_data_cube1[] = {
 	-1.0f, -1.0f, -1.0f, // triangle 1 : begin
 	-1.0f, -1.0f, 1.0f,
 	-1.0f, 1.0f, 1.0f, // triangle 1 : end
@@ -219,20 +219,20 @@ static const GLfloat g_vertex_buffer_data_cube[] = {
 	1.0f, -1.0f, 1.0f
 };
 
-static const GLfloat vertices[] = {
+static const GLfloat vertices1[] = {
 	0.5f, 0.5f, 0.0f,  // Top Right
 	0.5f, -0.5f, 0.0f,  // Bottom Right
 	-0.5f, -0.5f, 0.0f,  // Bottom Left
 	-0.5f, 0.5f, 0.0f   // Top Left 
 };
 
-static const GLuint indices[] = {  // Note that we start from 0!
+static const GLuint indices1[] = {  // Note that we start from 0!
 	0, 1, 3,   // First Triangle
 	1, 2, 3    // Second Triangle
 };
 
 // One color for each vertex. They were generated randomly.
-static const GLfloat g_color_buffer_data[] = {
+static const GLfloat g_color_buffer_data1[] = {
 	0.583f, 0.771f, 0.014f,
 	0.609f, 0.115f, 0.436f,
 	0.327f, 0.483f, 0.844f,
@@ -271,7 +271,7 @@ static const GLfloat g_color_buffer_data[] = {
 	0.982f, 0.099f, 0.879f
 };
 
-static const char* vertexshadersource =
+static const char* vertexshadersource1 =
 "#version 440 core\n"
 "layout(location = 0) in vec3 vertexPosition_modelspace;\n"
 "layout(location = 1) in vec3 vertexColor;\n"
@@ -283,7 +283,7 @@ static const char* vertexshadersource =
 "}"
 ;
 
-static const char* fragshadersource =
+static const char* fragshadersource1 =
 "#version 440 core\n"
 "in vec3 fragcolor;\n"
 "out vec3 color;\n"
@@ -293,151 +293,118 @@ static const char* fragshadersource =
 ;
 
 static enum FILE_l{ FILE_NON, FILE_OBJ, FILE_VSHADER, FILE_FSHADER, FILE_PROGRAM };
+static double xold = 0, yold = 0, xmov = 0;
+static GLuint obj_vao = NULL;
 
-int _tmain(int argc, _TCHAR* argv[]){
-
-	//without 'static': an enclosing-function local variable cannot be referenced in a lambda body unless if it is in capture list
-	static objload Obj;
-
-	if (glfwInit() == GLFW_FALSE){
-		fprintf_s(stderr, "failed to init glfw\n");
-		glfwTerminate();
-	}
-	window = glfwCreateWindow(800, 600, "shader", NULL, NULL);
-	if (!window){
-		glfwTerminate();
-		return -1;
-	}
-
-	glfwMakeContextCurrent(window);
-	glfwSwapInterval(1);
-	glfwSetErrorCallback(
-		[](int error, const char * desc){
-		fprintf_s(stderr, "ERROR:%s\n", desc); 
-	}
-	);
-	glfwSetDropCallback(
-		window,
-		[](GLFWwindow* win, int count, const char * path[]){
-		int len = GET_ARRAY_LEN(path), f, path_v = -1, path_f = -1;
-		
-		for (int p = 0; p < len;++p){
-			switch (drop_file(path[p])){
-			case FILE_NON:
-				printf_s("File not found\n");
-				break;
-
-			case FILE_OBJ:
-				printf_s("Found obj file\n");
-				Obj.creatvao_obj(path[p]);
-				break;
-
-			case FILE_VSHADER:
-				printf_s("Found vshader file\n");
-				if (path_f != -1)
-					load_shader(path[p], path[path_f]);
-				else
-					path_v = p;
-				break;
-
-			case FILE_FSHADER:
-				printf_s("Found fshader file\n");
-				if (path_v != -1)
-					load_shader(path[path_v], path[p]);
-				else
-					path_f = p;
-				break;
-
-			default:
-				break;
-			}
-		}
-	}
-	);
-	static double xold = 0, yold = 0, xmov = 0;
-	glfwSetCursorPosCallback(
-		window,
-		[](GLFWwindow* win, double x, double y){
-		xmov += x - xold; 
-		xold = x; 
-	}
-	);
-	glfwSetKeyCallback(
-		window,
-		[](GLFWwindow* win, int key, int scancode, int action, int mods){
-		switch (key){
-		case GLFW_KEY_F:
-			if (action == GLFW_PRESS){
-			glfwSetWindowMonitor(window, isFullscreen? NULL: glfwGetPrimaryMonitor(), 0, 0, 800, 600, GLFW_DONT_CARE);
-			isFullscreen = !isFullscreen;
-			}
-			break;
-		default:
-			break;
-		}
-	}
-	);
-	//init glew after setting glfw
-	if (glewInit() == GLEW_OK)
-		printf_s("glew initialized\n");
-	else
-		fprintf_s(stderr, "failed to initialize glew\n");
-
-	GLuint vao,vbo,vshader,fshader,shaderprogram,ebo,colorbuffer;
+class GL{
+public:
+	GLuint vao, vbo, vshader, fshader, shaderprogram, ebo, colorbuffer;
 	GLint success;
 	GLchar infolog[512];
 
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	GL(GLfloat* g_vertex_buffer_data_cube,
+		size_t vertex_size,
+		GLuint* indices,
+		size_t index_size,
+		GLfloat* g_color_buffer_data,
+		size_t color_size,
+		char* vs,
+		char* fs){
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
 
-	glEnableVertexAttribArray(0);
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data_cube), g_vertex_buffer_data_cube, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), NULL);
+		glEnableVertexAttribArray(0);
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vertex_size, g_vertex_buffer_data_cube, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), NULL);
 
-	glGenBuffers(1, &ebo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+		glGenBuffers(1, &ebo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_size, indices, GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(1); 
-	glGenBuffers(1, &colorbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data), g_color_buffer_data, GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat),NULL);	
+		glEnableVertexAttribArray(1);
+		glGenBuffers(1, &colorbuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, colorbuffer);
+		glBufferData(GL_ARRAY_BUFFER, color_size, g_color_buffer_data, GL_STATIC_DRAW);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), NULL);
 
-	glBindVertexArray(0);
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	vshader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vshader, 1, &vertexshadersource, NULL);
-	glCompileShader(vshader);
-	glGetShaderiv(vshader, GL_COMPILE_STATUS, &success);
-	if (!success){
-		glGetShaderInfoLog(vshader, 512, NULL, infolog);
-		fprintf_s(stderr,"vshader:%s", infolog);
+		vshader = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vshader, 1, &vs, NULL);
+		glCompileShader(vshader);
+		glGetShaderiv(vshader, GL_COMPILE_STATUS, &success);
+		if (!success){
+			glGetShaderInfoLog(vshader, 512, NULL, infolog);
+			fprintf_s(stderr, "vshader:%s", infolog);
+		}
+
+		fshader = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(fshader, 1, &fs, NULL);
+		glCompileShader(fshader);
+		glGetShaderiv(fshader, GL_COMPILE_STATUS, &success);
+		if (!success){
+			glGetShaderInfoLog(fshader, 512, NULL, infolog);
+			fprintf_s(stderr, "fshader:%s", infolog);
+		}
+
+		shaderprogram = glCreateProgram();
+		glAttachShader(shaderprogram, vshader);
+		glAttachShader(shaderprogram, fshader);
+		glLinkProgram(shaderprogram);
+		glGetProgramiv(shaderprogram, GL_LINK_STATUS, &success);
+		if (!success){
+			glGetProgramInfoLog(shaderprogram, 512, NULL, infolog);
+			fprintf_s(stderr, "shaderprogram:%s", infolog);
+		}
+		glGetProgramiv(shaderprogram, GL_ACTIVE_UNIFORMS, &success);
+		printf_s("number:%d\n", success);
+		glDetachShader(shaderprogram, vshader);
+		glDetachShader(shaderprogram, fshader);
+		
 	}
 
-	fshader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fshader, 1, &fragshadersource, NULL);
-	glCompileShader(fshader);
-	glGetShaderiv(fshader, GL_COMPILE_STATUS, &success);
-	if (!success){
-		glGetShaderInfoLog(fshader, 512, NULL, infolog);
-		fprintf_s(stderr, "fshader:%s", infolog);
+	void display(mat4 VPmatrix){
+		glClearColor(1, 0, 0, 0);
+		glViewport(0, 0, 800, 600);
+		glBindVertexArray(vao);
+		glUseProgram(shaderprogram);
+		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "mvp"), 1, GL_FALSE, (float*)&VPmatrix);//load mvp
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
 	}
 
-	shaderprogram = glCreateProgram();
-	glAttachShader(shaderprogram, vshader);
-	glAttachShader(shaderprogram, fshader);
-	glLinkProgram(shaderprogram);
-	glGetProgramiv(shaderprogram, GL_LINK_STATUS, &success);
-	if (!success){
-		glGetProgramInfoLog(shaderprogram, 512, NULL, infolog);
-		fprintf_s(stderr, "shaderprogram:%s", infolog);
+	GLuint get_vao(){
+		return vao;
 	}
-	glDetachShader(shaderprogram, vshader);
-	glDetachShader(shaderprogram, fshader);
-	
+
+	GLuint get_program(){
+		return shaderprogram;
+	}
+};
+
+
+int _tmain(int argc, _TCHAR* argv[]){
+
+	init();
+	GL *gl = new GL(const_cast<GLfloat*> (g_vertex_buffer_data_cube1), 
+		sizeof(g_vertex_buffer_data_cube1), 
+		const_cast<GLuint*>(indices1), 
+		sizeof(indices1), 
+		const_cast<GLfloat*>(g_color_buffer_data1),
+		sizeof(g_color_buffer_data1), 
+		const_cast<char*>(vertexshadersource1),
+		const_cast<char*>(fragshadersource1));
+
+	int success;
+	glGetProgramiv(gl->get_program(), GL_ACTIVE_UNIFORMS, &success);
+	printf_s("number:%d\n", success);
+
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
@@ -448,30 +415,24 @@ int _tmain(int argc, _TCHAR* argv[]){
 
 	//mainloop
 	while (!glfwWindowShouldClose(window)){
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		double now = glfwGetTime();
 		float pass = lasttime ? (now - lasttime) : 0;
 		lasttime = !lasttime ? now : lasttime;
-		
-		mat4 modelrotate = rotate(pass,rotate_axis);
+
+		mat4 modelrotate = rotate(pass, rotate_axis);
 		mat4 projectionmatrix = perspective(75.0f, 4.0f / 3.0f, 0.1f, 500.0f);
-		mat4 viewmatrix = lookAtRH(vec3(4+xmov, 5, 7), vec3(0, 0, 0), vec3(0, 1, 0));
+		//mat4 viewmatrix = lookAtRH(vec3(4 + xmov, 5, 7), vec3(0, 0, 0), vec3(0, 1, 0));
+		mat4 viewmatrix = lookAtRH(vec3(4, 5, 7), vec3(0, 0, 0), vec3(0, 1, 0));
 		mat4 VPmatrix = projectionmatrix*viewmatrix*modelrotate;//mvp matrix
-		
-		glViewport(0, 0, 800, 600);
-		glBindVertexArray(vao);
-		glUseProgram(shaderprogram);
-		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "mvp"), 1, GL_FALSE, (float*)&VPmatrix);//load mvp
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-		glUseProgram(0);
+
+		gl->display(VPmatrix);
 
 		glfwPollEvents();
 		glfwSwapBuffers(window);
 	}
-
+	delete gl;
 	glfwTerminate();
 	//system("pause");
 	return 0;
@@ -503,17 +464,106 @@ int drop_file(string s){
 	return FILE_NON;
 }
 
+int init(void){
+	static objload Obj;
+
+	if (glfwInit() == GLFW_FALSE){
+		fprintf_s(stderr, "failed to init glfw\n");
+		glfwTerminate();
+	}
+	window = glfwCreateWindow(800, 600, "shader", NULL, NULL);
+	if (!window){
+		glfwTerminate();
+		return -1;
+	}
+
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);
+	glfwSetErrorCallback(
+		[](int error, const char * desc){
+		fprintf_s(stderr, "ERROR:%s\n", desc);
+	}
+	);
+
+	glfwSetDropCallback(
+		window,
+		[](GLFWwindow* win, int count, const char * path[]){
+		int len = GET_ARRAY_LEN(path), f, path_v = -1, path_f = -1;
+
+		for (int p = 0; p < len; ++p){
+			switch (drop_file(path[p])){
+			case FILE_NON:
+				printf_s("File not found\n");
+				break;
+
+			case FILE_OBJ:
+				printf_s("Found obj file\n");
+				obj_vao = Obj.creatvao_obj(path[p]);
+				break;
+
+			case FILE_VSHADER:
+				printf_s("Found vshader file\n");
+				if (path_f != -1)
+					load_shader(path[p], path[path_f]);
+				else
+					path_v = p;
+				break;
+
+			case FILE_FSHADER:
+				printf_s("Found fshader file\n");
+				if (path_v != -1)
+					load_shader(path[path_v], path[p]);
+				else
+					path_f = p;
+				break;
+
+			default:
+				break;
+			}
+		}
+	}
+	);
+	glfwSetCursorPosCallback(
+		window,
+		[](GLFWwindow* win, double x, double y){
+		xmov += x - xold;
+		xold = x;
+	}
+	);
+	glfwSetKeyCallback(
+		window,
+		[](GLFWwindow* win, int key, int scancode, int action, int mods){
+		switch (key){
+		case GLFW_KEY_F:
+			if (action == GLFW_PRESS){
+				glfwSetWindowMonitor(window, isFullscreen ? NULL : glfwGetPrimaryMonitor(), 0, 0, 800, 600, GLFW_DONT_CARE);
+				isFullscreen = !isFullscreen;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+	);
+	//init glew after setting glfw
+	if (glewInit() == GLEW_OK)
+		printf_s("glew initialized\n");
+	else
+		fprintf_s(stderr, "failed to initialize glew\n");
+	return 0;
+}
+
 //load shader from dropped file, path: vshader, path2: fshader
 GLuint load_shader(const char* path, const char* path2){
-	string vshader_f_source, fshader_f_source,temp;
+	string vshader_f_source, fshader_f_source, temp;
 	auto shaderfstream = ifstream(path, ios::in);
 	if (shaderfstream.is_open()){
-		while (getline(shaderfstream,temp)){
+		while (getline(shaderfstream, temp)){
 			vshader_f_source += temp + "\n";
 		}
 	}
 	shaderfstream.close();
-	
+
 	shaderfstream = ifstream(path2);
 	if (shaderfstream.is_open()){
 		while (getline(shaderfstream, temp)){
@@ -524,7 +574,7 @@ GLuint load_shader(const char* path, const char* path2){
 
 	GLint success;
 	GLchar infolog[512];
-	GLuint l_vs, l_fs,l_program;
+	GLuint l_vs, l_fs, l_program;
 	char const *l_vshader = vshader_f_source.c_str();
 	char const *l_fshader = fshader_f_source.c_str();
 	l_vs = glCreateShader(GL_VERTEX_SHADER);
