@@ -594,7 +594,7 @@ public:
 		glGenBuffers(1, &vbo);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 		glBufferData(GL_ARRAY_BUFFER, vertex_size, v_n, GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), NULL);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0);
 		
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
@@ -672,11 +672,19 @@ int _tmain(int argc, _TCHAR* argv[]){
 	while (!glfwWindowShouldClose(window)){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		GLfloat grey[] = { 0.8, 0.8, 0.8, 1 };
-		double now = glfwGetTime();
+		/*double now = glfwGetTime();
 		float pass = lasttime ? (now - lasttime) : 0;
-		lasttime = !lasttime ? now : lasttime;
+		lasttime = !lasttime ? now : lasttime;*/
+
+		GLfloat currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
+		glfwPollEvents();
+		do_movement();
 		//glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE,grey);
-		mat4 modelrotate = rotate(pass, rotate_axis);
+		//mat4 modelrotate = rotate(pass, rotate_axis);
+		mat4 modelrotate = mat4(1);
 		mat4 projectionmatrix = perspective(75.0f, 4.0f / 3.0f, 0.1f, 500.0f);
 		//mat4 viewmatrix = lookAtRH(vec3(4 + xmov, 5, 7), vec3(0, 0, 0), vec3(0, 1, 0));
 		mat4 viewmatrix = lookAt(cameraPos, cameraPos+cameraFront, cameraUp);
@@ -685,7 +693,6 @@ int _tmain(int argc, _TCHAR* argv[]){
 		//gl->display(VPmatrix);
 		gl_n.display(VPmatrix, modelrotate, cameraPos);
 
-		glfwPollEvents();
 		glfwSwapBuffers(window);
 	}
 	delete gl;
@@ -727,6 +734,8 @@ int init(void){
 	keystatus[GLFW_KEY_A] = false;
 	keystatus[GLFW_KEY_S] = false;
 	keystatus[GLFW_KEY_D] = false;
+	keystatus[GLFW_KEY_U] = false;
+	keystatus[GLFW_KEY_J] = false;
 
 	static objload Obj;
 
@@ -803,14 +812,26 @@ int init(void){
 				isFullscreen = !isFullscreen;
 			}
 			break;
-		case GLFW_KEY_W||GLFW_KEY_A ||GLFW_KEY_S ||GLFW_KEY_D:
+
+		case GLFW_KEY_W:
+		case GLFW_KEY_A:
+		case GLFW_KEY_S:
+		case GLFW_KEY_D:
+		case GLFW_KEY_U:
+		case GLFW_KEY_J:
 			if (action == GLFW_PRESS)
 				keystatus[key] = true;
 			if (action == GLFW_RELEASE)
 				keystatus[key] = false;
 			break;
+
+		case GLFW_KEY_R:
+			cameraPos = vec3(0, 0, 7);
+			break;		
+			
 		default:
 			break;
+
 		}
 	}
 	);
@@ -828,12 +849,18 @@ void do_movement()
 	GLfloat cameraSpeed = 5.0f * deltaTime;
 	if (keystatus[GLFW_KEY_W])
 		cameraPos += cameraSpeed * cameraFront;
-	if (keystatus[GLFW_KEY_S])
+	else if (keystatus[GLFW_KEY_S])
 		cameraPos -= cameraSpeed * cameraFront;
-	if (keystatus[GLFW_KEY_A])
+	else if (keystatus[GLFW_KEY_A])
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	if (keystatus[GLFW_KEY_D])
+	//cameraPos -= vec3(1, 0, 0)*cameraSpeed;
+	else if (keystatus[GLFW_KEY_D])
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	//cameraPos += vec3(1, 0, 0)*cameraSpeed;
+	else if (keystatus[GLFW_KEY_U])
+		cameraPos += normalize(cameraUp)*cameraSpeed;
+	else if (keystatus[GLFW_KEY_J])
+		cameraPos -= normalize(cameraUp)*cameraSpeed;
 }
 
 //load shader from dropped file, path: vshader, path2: fshader
