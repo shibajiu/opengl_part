@@ -26,4 +26,6 @@
 #include <string>
 #include <map>
 
+
 #define GET_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))
+#define UFIND_INDEX(x,y) find(x.begin(),x.end(),y)==x.end()
