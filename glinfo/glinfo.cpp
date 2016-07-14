@@ -153,7 +153,6 @@ static const char* vertexshadersource1 =
 "#version 440 core\n"
 "layout(location = 0) in vec3 vertexPosition_modelspace;\n"
 "layout(location = 1) in vec3 vertexColor;\n"
-"layout(location = 2) in vec3 vertexNormal;\n"
 
 "uniform mat4 mvp;\n"
 
@@ -167,21 +166,18 @@ static const char* vertexshadersource1 =
 
 static const char* fragshadersource1 =
 "#version 440 core\n"
-"uniform vec4 lightcolor;\n"
 
 "in vec3 objectcolor;\n"
 
 "out vec4 color;\n"
 
 "void main(){\n"
-	"float ambientStrength = 0.3f;\n"
 	"color = vec4(objectcolor,1.0);\n"
-	"color = ambientStrength*lightcolor*color;\n"
 "}"
 ;
 
 static const char* vertexshadersource2 =
-"#version 440 core\n"
+"#version 330 core\n"
 "layout(location = 0) in vec3 vertexPosition_modelspace;\n"
 "layout(location = 1) in vec3 vertexNormal;\n"
 "layout(location = 2) in vec3 vertexColor;\n"
@@ -205,7 +201,7 @@ static const char* vertexshadersource2 =
 ;
 
 static const char* fragshadersource2 =
-"#version 440 core\n"
+"#version 330 core\n"
 "uniform vec3 lightcolor;\n"
 "uniform vec3 lightDir;\n"
 "uniform vec3 viewPos;\n"
@@ -232,6 +228,29 @@ static const char* fragshadersource2 =
 	"vec3 color_temp = (ambientStrength+diffuse+specularStrength*reflect)*lightcolor*objectcolor;\n"
 	"color = vec4(color_temp,1.0);\n"
 	//"color = vec4(1,1,1,1.0);\n"
+"}"
+;
+
+static const char* vertexshadersource3 =
+"#version 330 core\n"
+"layout(location = 0) in vec3 vertexPosition_modelspace;\n"
+
+"uniform mat4 projection;\n"
+"uniform mat4 view;\n"
+"uniform mat4 model;\n"
+
+
+"void main(){\n"
+"gl_Position = projection * view * model * vec4(vertexPosition_modelspace,1.0f);\n"
+"}"
+;
+
+static const char* fragshadersource3 =
+"#version 330 core\n"
+"out vec4 color;\n"
+
+"void main(){\n"
+"color = vec4(1,0,0,1.0);\n"
 "}"
 ;
 
@@ -604,7 +623,6 @@ public:
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 		creatProgram(vs, fs);
 	}
@@ -620,6 +638,36 @@ public:
 		glProgramUniform3f(shaderprogram, glGetUniformLocation(shaderprogram, "lightDir"), 1, 0, 0);
 		glProgramUniform3f(shaderprogram, glGetUniformLocation(shaderprogram, "viewPos"), eye.x, eye.y, eye.z);
 		glProgramUniform3f(shaderprogram, glGetUniformLocation(shaderprogram, "lightcolor"), 1, 1, 1);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
+	}
+
+	void display(mat4 VPmatrix){
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glViewport(0, 0, 800, 600);
+		glBindVertexArray(vao);
+		glUseProgram(shaderprogram);
+		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "mvp"), 1, GL_FALSE, (float*)&VPmatrix);//load mvp
+		
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		glUseProgram(0);
+	}
+
+	void display(mat4 model,mat4 view,mat4 projection){
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glViewport(0, 0, 800, 600);
+		glUseProgram(shaderprogram);
+		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "model"), 1, GL_FALSE, (float*)&model);//load mvp
+		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "view"), 1, GL_FALSE, (float*)&view);//load mvp
+		glProgramUniformMatrix4fv(shaderprogram, glGetUniformLocation(shaderprogram, "projection"), 1,GL_FALSE, (float*)&projection);//load mvp
+
+		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -654,19 +702,25 @@ int _tmain(int argc, _TCHAR* argv[]){
 			const_cast<char*>(vertexshadersource2),
 			const_cast<char*>(fragshadersource2)
 			);
+
+	GL gl_n2(const_cast<GLfloat*> (vertices_normals),
+		sizeof(vertices_normals),
+		const_cast<char*>(vertexshadersource3),
+		const_cast<char*>(fragshadersource3)
+		);
 	
 	int success;
 	glGetProgramiv(gl->get_program(), GL_ACTIVE_UNIFORMS, &success);
 	printf_s("number:%d\n", success);
 	
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glClearColor(0, 0, 0, 0);
 
 	double lasttime = 0;
 	vec3 rotate_axis(0.0, 1.0, 0.0);
-	//glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 
 	//mainloop
 	while (!glfwWindowShouldClose(window)){
@@ -683,15 +737,42 @@ int _tmain(int argc, _TCHAR* argv[]){
 		glfwPollEvents();
 		do_movement();
 		//glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE,grey);
-		//mat4 modelrotate = rotate(pass, rotate_axis);
-		mat4 modelrotate = mat4(1);
-		mat4 projectionmatrix = perspective(75.0f, 4.0f / 3.0f, 0.1f, 500.0f);
-		//mat4 viewmatrix = lookAtRH(vec3(4 + xmov, 5, 7), vec3(0, 0, 0), vec3(0, 1, 0));
-		mat4 viewmatrix = lookAt(cameraPos, cameraPos+cameraFront, cameraUp);
-		mat4 VPmatrix = projectionmatrix*viewmatrix*modelrotate;//mvp matrix
+		
+		GLuint shaderprogram = gl_n2.get_program();
+#ifndef first		
+		glm::mat4 view;
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, glm::vec3(0.0f, 1.0f, 0.0f));
+		// Projection 
+		glm::mat4 projection;
+		projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 500.0f);
+		glm::mat4 model;
+		model = translate(model, vec3(0, 0.3, 0));
+		// Get the uniform locations
+		glUseProgram(shaderprogram);
+		// Pass the matrices to the shader
+		glBindVertexArray(gl_n2.get_vao());
+		glUniformMatrix4fv(glGetUniformLocation(shaderprogram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(glGetUniformLocation(shaderprogram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+		glUniformMatrix4fv(glGetUniformLocation(shaderprogram, "model"), 1, GL_FALSE, glm::value_ptr(model));
 
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+		glUseProgram(0);
+#endif
+#ifdef first
+		mat4 model;
+		model = translate(model,vec3(0,0,0));
+		//fovy=75 interesting
+		mat4 projectionmatrix = perspective(70.0f, 4.0f / 3.0f, 0.1f, 100.0f);
+		mat4 viewmatrix = lookAt(cameraPos, cameraPos + cameraFront, vec3(0.0f, 1.0f, 0.0f));
+#endif
 		//gl->display(VPmatrix);
-		gl_n.display(VPmatrix, modelrotate, cameraPos);
+		gl_n2.display(model, viewmatrix, projectionmatrix);
+		/*glBegin(GL_TRIANGLES);
+		glVertex3f(-1, -1, 0);
+		glVertex3f( 1, -1, 0);
+		glVertex3f( 0,  1, 0);
+		glEnd();*/
 
 		glfwSwapBuffers(window);
 	}

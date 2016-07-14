@@ -25,7 +25,9 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <gtc/type_ptr.hpp>
 
 
 #define GET_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))
 #define UFIND_INDEX(x,y) find(x.begin(),x.end(),y)==x.end()
+#define first
