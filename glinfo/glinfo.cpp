@@ -288,7 +288,7 @@ private:
 
 		FaceIndex(){}
 		FaceIndex(GLuint x, GLuint y, GLuint z) :a(x), b(y), c(z){}
-		FaceIndex(GLuint x[3]) :a(x[0]), b(x[1]), c(x[2]){}
+		FaceIndex(GLuint x[3]) :a(x[0]-1), b(x[1]-1), c(x[2]-1){}
 		FaceIndex(GLuint x[3], GLuint y[3], GLuint z[3]) :
 			a(x[0]), b(x[1]), c(x[2]),
 			auv(y[0]), buv(y[1]), cuv(y[2]),
@@ -382,6 +382,7 @@ private:
 public:
 
 	GLuint creatvao_obj(const char* path, int flag = FILE_V);
+	GLuint getElementNum(){ return obj_indexbuffer_size; }
 
 	~objload(){
 		Vertices.clear();
@@ -455,12 +456,12 @@ GLuint objload::creatvao_obj(const char* path, int flag){
 		glEnableVertexAttribArray(0);
 		glGenBuffers(1, &vbo_l);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo_l);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(obj_vertexbuffer), obj_vertexbuffer, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float)*obj_vertexbuffer_size, obj_vertexbuffer, GL_STATIC_DRAW);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GL_FLOAT), NULL);
 
 		glGenBuffers(1, &ebo_l);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_l);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(obj_indexbuffer), obj_indexbuffer, GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*obj_indexbuffer_size, obj_indexbuffer, GL_STATIC_DRAW);
 
 		glBindVertexArray(0);
 	}
@@ -712,6 +713,9 @@ int _tmain(int argc, _TCHAR* argv[]){
 	int success;
 	glGetProgramiv(gl->get_program(), GL_ACTIVE_UNIFORMS, &success);
 	printf_s("number:%d\n", success);
+
+	objload objt;
+	GLuint o_voa = objt.creatvao_obj("e:/Elephant Cookie Cutter.obj", FILE_NON);
 	
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glEnable(GL_DEPTH_TEST);
@@ -720,7 +724,7 @@ int _tmain(int argc, _TCHAR* argv[]){
 
 	double lasttime = 0;
 	vec3 rotate_axis(0.0, 1.0, 0.0);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 
 	//mainloop
 	while (!glfwWindowShouldClose(window)){
@@ -751,11 +755,15 @@ int _tmain(int argc, _TCHAR* argv[]){
 		glUseProgram(shaderprogram);
 		// Pass the matrices to the shader
 		glBindVertexArray(gl_n2.get_vao());
+
+		glBindVertexArray(o_voa);
 		glUniformMatrix4fv(glGetUniformLocation(shaderprogram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(glGetUniformLocation(shaderprogram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shaderprogram, "model"), 1, GL_FALSE, glm::value_ptr(model));
 
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		//glDrawArrays(GL_TRIANGLES, 0, 36);
+		glDrawElements(GL_TRIANGLES, objt.getElementNum(), GL_UNSIGNED_INT, 0);
+
 		glBindVertexArray(0);
 		glUseProgram(0);
 #endif
@@ -767,7 +775,9 @@ int _tmain(int argc, _TCHAR* argv[]){
 		mat4 viewmatrix = lookAt(cameraPos, cameraPos + cameraFront, vec3(0.0f, 1.0f, 0.0f));
 #endif
 		//gl->display(VPmatrix);
-		gl_n2.display(model, viewmatrix, projectionmatrix);
+
+		//gl_n2.display(model, viewmatrix, projectionmatrix);
+
 		/*glBegin(GL_TRIANGLES);
 		glVertex3f(-1, -1, 0);
 		glVertex3f( 1, -1, 0);
